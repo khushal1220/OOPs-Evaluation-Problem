@@ -1,3 +1,21 @@
+/* 
+
+Input:
+1 imported bottle of perfume at 27.99
+3 bottle of perfume at 18.99
+100 packet of headache pills at 9.75
+9 box of imported chocolates at 11.25
+
+Output:
+1 imported bottle of perfume: 32.19
+3 bottle of perfume: 20.89
+100 packet of headache pills: 9.75
+9 box of imported chocolates: 11.85
+Sales Taxes: 15.30
+Total: 1176.51
+
+*/
+
 using System;
 using System.Collections.Generic;
 
