@@ -19,7 +19,7 @@ Total: 1176.51
 using System;
 using System.Collections.Generic;
 using BillingSystem;
-//App is a idle class which may use Bill class 
+//App is a idle class which may use Bill System
 public class App
 {
     public static void Main()
@@ -56,7 +56,7 @@ public class App
     }
 }
 
-//here is the implimentation of Bill class
+//here is the implimentation of Bill System
 namespace BillingSystem
 {
     public struct ShoppingItem
