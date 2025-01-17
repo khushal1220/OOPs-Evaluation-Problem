@@ -25,6 +25,8 @@ public class App
     public static void Main()
     {
         Bill bill = new Bill();
+        string[] ExemptedItems = { "pills", "chocolate","book"};
+        TaxUtility taxUtility= new TaxUtility(.1f,.05f,ExemptedItems);
         string input;
         while (true)
         {
@@ -44,92 +46,37 @@ public class App
                 break;
             }
         }
+
+        Receipt receipt = bill.GenerateReceipt(taxUtility);
         //bill.RemoveItem("100 packet of headache pills at 9.75");
-        bill.GenerateReceipt();
+        //receipt = new Receipt(bill,taxUtility);
+
+        receipt.Print();
+
     }
 }
 
 //here is the implimentation of Bill class
 namespace BillingSystem
 {
-    public class Bill
+    public struct ShoppingItem
     {
-        struct ShoppingItem
+        public int Quantity { get; }
+        public string Name { get; }
+        public float Price { get; }
+        public bool IsImported { get; }
+
+        public ShoppingItem(int quantity, string name, float price,bool isImported)
         {
-            public int Quantity { get; }
-            public string Name { get; }
-            public float Price { get; }
-            public bool IsExempted { get; }
-            public bool IsImported { get; }
-
-            public ShoppingItem(int quantity, string name, float price, bool isExempted, bool isImported)
-            {
-                Quantity = quantity;
-                Name = name;
-                Price = price;
-                IsImported = isImported;
-                IsExempted = isExempted;
-            }
+            Quantity = quantity;
+            Name = name;
+            Price = price;
+            IsImported = isImported;
         }
-
-        List<ShoppingItem> items = new List<ShoppingItem>();
-        public void AddItem(string input)
-        {
-            try
-            {
-                ShoppingItem item;
-                item = parseShopingItem(input);
-                items.Add(item);
-            }
-            catch (Exception ex)
-            {
-                throw new FormatException($"{ex}");
-            }
-        }
-        public void RemoveItem(string input)
-        {
-            try
-            {
-                ShoppingItem item;
-                item = parseShopingItem(input);
-                if (items.Contains(item)) items.Remove(item);
-            }
-            catch (Exception ex)
-            {
-                throw new FormatException($"{ex}");
-            }
-
-        }
-        float CalculateSalesTax(ShoppingItem item)
-        {
-            float taxRate = 0.0f;
-
-            if (!item.IsExempted) taxRate += 0.10f;
-
-            if (item.IsImported) taxRate += 0.05f;
-
-            float calculatedTax = item.Price * taxRate;
-            return (float)Math.Ceiling(calculatedTax * 20) / 20;
-        }
-
-        public void GenerateReceipt()
-        {
-            float totalSalesTax = 0.0f;
-            float totalAmount = 0.0f;
-            foreach (var item in items)
-            {
-                float tax = CalculateSalesTax(item);
-                float totalPrice = item.Price + tax;
-                totalSalesTax += item.Quantity * tax;
-                totalAmount += item.Quantity * totalPrice;
-                Console.WriteLine($"{item.Quantity} {item.Name}: {string.Format("{0:0.00}", totalPrice)}");
-            }
-
-            Console.WriteLine($"Sales Taxes: {string.Format("{0:0.00}", totalSalesTax)}");
-            Console.WriteLine($"Total: {string.Format("{0:0.00}", totalAmount)}");
-        }
-
-        ShoppingItem parseShopingItem(string details)
+    }
+    public static class BillingSystemUtilities
+    {
+        public static ShoppingItem parseShoppingItem(string details)
         {
             var nameAndPrice = details.Split(" at ");
             if (nameAndPrice.Length != 2) throw new FormatException($"Invalid purchase format ");
@@ -143,11 +90,104 @@ namespace BillingSystem
             var name = quantityAndNamePart.Substring(quantityAndNamePart.IndexOf(' ') + 1);
 
             bool isImported = name.Contains("imported", StringComparison.OrdinalIgnoreCase);
-            bool isExempt = name.Contains("book", StringComparison.OrdinalIgnoreCase) ||
-                             name.Contains("chocolate", StringComparison.OrdinalIgnoreCase) ||
-                            name.Contains("pill", StringComparison.OrdinalIgnoreCase);
 
-            return new ShoppingItem(quantity, name, price, isExempt, isImported);
+            return new ShoppingItem(quantity, name, price, isImported);
+        }
+    }
+
+    public class Bill
+    {
+        List<ShoppingItem> items = new List<ShoppingItem>();
+        public IReadOnlyList<ShoppingItem> Items => items.AsReadOnly();
+        public void AddItem(string input)
+        {
+            try
+            {
+                ShoppingItem item = BillingSystemUtilities.parseShoppingItem(input);
+                items.Add(item);
+            }
+            catch (Exception ex)
+            {
+                throw new FormatException($"{ex}");
+            }
+        }
+        public void RemoveItem(string input)
+        {
+            try
+            {
+                ShoppingItem item = BillingSystemUtilities.parseShoppingItem(input);
+                if (items.Contains(item)) items.Remove(item);
+            }
+            catch (Exception ex)
+            {
+                throw new FormatException($"{ex}");
+            }
+        }
+
+        public Receipt GenerateReceipt(TaxUtility taxUtility)
+        {
+            return new Receipt(this,taxUtility);
+        }
+    }
+    public class TaxUtility
+    {
+        public float SalesTax {get;} = .1f;
+        public float ImportTax {get;} = .05f;
+        public string[] Exempted {get;}
+
+        public TaxUtility(float SalesTax, float ImportTax, string[] ExemptedItems){
+            this.SalesTax = SalesTax;
+            this.ImportTax = ImportTax;
+            this.Exempted = ExemptedItems;
+        }
+
+        public bool IsExempt(string itemName){
+            foreach(var item in Exempted ) {
+                if(itemName.Contains(item, StringComparison.OrdinalIgnoreCase)) return true;
+            }
+            return false;
+        }
+        public float CalculateSalesTax(float Price , string Name,bool IsImported)
+        {
+            float taxRate = 0.0f;
+
+            if (!IsExempt(Name)) taxRate += SalesTax;
+
+            if (IsImported) taxRate += ImportTax;
+
+            float calculatedTax = Price * taxRate;
+            return (float)Math.Ceiling(calculatedTax * 20) / 20;
+        }
+    }
+    public class Receipt
+    {
+        public Bill bill {get;}
+        public TaxUtility taxUtility{get;}
+        public Receipt(Bill bill,TaxUtility taxUtility)
+        {
+            this.bill = bill;
+            this.taxUtility = taxUtility;
+        }
+
+        public void Print()
+        {
+            if(bill == null || taxUtility == null){
+                throw new FormatException("Bill or TaxUtility is not correctly configured");
+                return;
+            }
+            float totalSalesTax = 0.0f;
+            float totalAmount = 0.0f;
+            foreach (var item in bill.Items)
+            {
+                float tax = taxUtility.CalculateSalesTax(item.Price,item.Name,item.IsImported);
+                float totalPrice = item.Price + tax;
+                totalSalesTax += item.Quantity * tax;
+                totalAmount += item.Quantity * totalPrice;
+                Console.WriteLine($"{item.Quantity} {item.Name}: {string.Format("{0:0.00}", totalPrice)}");
+            }
+
+            Console.WriteLine($"Sales Taxes: {string.Format("{0:0.00}", totalSalesTax)}");
+            Console.WriteLine($"Total: {string.Format("{0:0.00}", totalAmount)}");
         }
     }
 }
